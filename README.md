@@ -6,6 +6,6 @@
 介绍视频：https://www.bilibili.com/video/BV1XhVD6wEVR/
 
 # 相关技术支持
-萨卡兹字母字体：https://github.com/lhclbt/Endfield_Font。
-Pywubi库（原生的支持的是五笔86，但是终末地用的是五笔98，所以我更新了一下）。
-五笔98字库：http://98wb.ysepan.com/。
+萨卡兹字母字体：https://github.com/lhclbt/Endfield_Font
+Pywubi库（原生的支持的是五笔86，但是终末地用的是五笔98，所以我更新了一下）
+五笔98字库：http://98wb.ysepan.com/
