@@ -350,7 +350,7 @@ button {
 
 .presets {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 6px;
   margin-top: 9px;
 }
@@ -371,6 +371,74 @@ button {
   border-color: #59645f;
   color: var(--text);
   background: #171c1b;
+}
+
+.presets button:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+}
+
+.background-controls {
+  margin-top: 17px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line-soft);
+  animation: crop-controls-in 180ms ease both;
+}
+
+.crop-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.crop-heading > span {
+  color: #bac1be;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.crop-heading button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.crop-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.crop-modes button {
+  height: 31px;
+  border: 1px solid #303736;
+  border-radius: 2px;
+  background: #111515;
+  color: #777f7d;
+  font-size: 9px;
+  cursor: pointer;
+  transition: 150ms ease;
+}
+
+.crop-modes button:hover,
+.crop-modes button.active {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.crop-range {
+  padding-top: 14px;
+}
+
+.crop-hint {
+  margin: 11px 0 0;
+  color: #68716e;
+  font-size: 9px;
+  line-height: 1.5;
 }
 
 .switch-row {
@@ -603,10 +671,11 @@ button {
   position: relative;
   z-index: 1;
   display: block;
-  max-width: 100%;
-  max-height: 100%;
-  width: auto;
-  height: auto;
+  flex: none;
+  width: 1px;
+  height: 1px;
+  max-width: none;
+  max-height: none;
   background-color: #151818;
   background-image:
     linear-gradient(45deg, #1b1f1e 25%, transparent 25%),
@@ -617,6 +686,20 @@ button {
   background-size: 16px 16px;
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
   transition: opacity 120ms ease, transform 180ms ease;
+}
+
+.canvas-stage canvas.has-background {
+  cursor: grab;
+  touch-action: none;
+}
+
+.canvas-stage canvas.has-background:active {
+  cursor: grabbing;
+}
+
+.canvas-stage canvas:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 4px;
 }
 
 .canvas-stage canvas.rendering {
@@ -684,6 +767,13 @@ button {
   from {
     opacity: 0;
     transform: translateY(8px);
+  }
+}
+
+@keyframes crop-controls-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
   }
 }
 

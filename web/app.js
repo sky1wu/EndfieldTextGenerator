@@ -31,7 +31,12 @@ const els = {
   backgroundDrop: document.querySelector("#backgroundDrop"),
   backgroundLabel: document.querySelector("#backgroundLabel"),
   backgroundHint: document.querySelector("#backgroundHint"),
+  backgroundControls: document.querySelector("#backgroundControls"),
   clearBackground: document.querySelector("#clearBackground"),
+  cropModes: document.querySelector(".crop-modes"),
+  cropZoom: document.querySelector("#cropZoomInput"),
+  cropZoomValue: document.querySelector("#cropZoomValue"),
+  resetCrop: document.querySelector("#resetCropButton"),
   presets: document.querySelector(".presets"),
   renderState: document.querySelector("#renderState"),
   sizeLabel: document.querySelector("#sizeLabel"),
@@ -57,6 +62,13 @@ let renderTimer = null;
 let toastTimer = null;
 let renderVersion = 0;
 let resourcesReady = false;
+let backgroundTransform = {
+  fit: "cover",
+  zoom: 1,
+  offsetX: 0,
+  offsetY: 0,
+};
+let activeDrag = null;
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -282,12 +294,72 @@ function drawShadow(ctx, bounds, opacity, seed) {
 }
 
 function currentDimensions() {
-  if (backgroundBitmap) {
-    return { width: backgroundBitmap.width, height: backgroundBitmap.height };
-  }
   const width = clamp(Number.parseInt(els.width.value, 10) || DEFAULTS.width, 320, 7680);
   const height = clamp(Number.parseInt(els.height.value, 10) || DEFAULTS.height, 320, 7680);
   return { width, height };
+}
+
+function getBackgroundRect(canvasWidth, canvasHeight) {
+  if (!backgroundBitmap) return null;
+  const baseScale =
+    backgroundTransform.fit === "cover"
+      ? Math.max(
+          canvasWidth / backgroundBitmap.width,
+          canvasHeight / backgroundBitmap.height,
+        )
+      : Math.min(
+          canvasWidth / backgroundBitmap.width,
+          canvasHeight / backgroundBitmap.height,
+        );
+  const scale = baseScale * backgroundTransform.zoom;
+  const width = backgroundBitmap.width * scale;
+  const height = backgroundBitmap.height * scale;
+  return {
+    x: (canvasWidth - width) / 2 + backgroundTransform.offsetX,
+    y: (canvasHeight - height) / 2 + backgroundTransform.offsetY,
+    width,
+    height,
+    scale,
+  };
+}
+
+function clampBackgroundOffset() {
+  if (!backgroundBitmap || backgroundTransform.fit !== "cover") return;
+  const { width: canvasWidth, height: canvasHeight } = currentDimensions();
+  const rect = getBackgroundRect(canvasWidth, canvasHeight);
+  const maxX = Math.max(0, (rect.width - canvasWidth) / 2);
+  const maxY = Math.max(0, (rect.height - canvasHeight) / 2);
+  backgroundTransform.offsetX = clamp(backgroundTransform.offsetX, -maxX, maxX);
+  backgroundTransform.offsetY = clamp(backgroundTransform.offsetY, -maxY, maxY);
+}
+
+function resetBackgroundTransform(renderAfter = true) {
+  backgroundTransform.zoom = 1;
+  backgroundTransform.offsetX = 0;
+  backgroundTransform.offsetY = 0;
+  els.cropZoom.value = 100;
+  updateCropZoom();
+  if (renderAfter) scheduleRender(10);
+}
+
+function setBackgroundZoom(nextZoom, anchor = null) {
+  const previousZoom = backgroundTransform.zoom;
+  const zoom = clamp(nextZoom, 1, 3);
+  if (anchor && previousZoom !== zoom) {
+    const ratio = zoom / previousZoom;
+    const { width, height } = currentDimensions();
+    const centerX = width / 2 + backgroundTransform.offsetX;
+    const centerY = height / 2 + backgroundTransform.offsetY;
+    backgroundTransform.offsetX =
+      anchor.x - width / 2 - (anchor.x - centerX) * ratio;
+    backgroundTransform.offsetY =
+      anchor.y - height / 2 - (anchor.y - centerY) * ratio;
+  }
+  backgroundTransform.zoom = zoom;
+  els.cropZoom.value = Math.round(zoom * 100);
+  updateCropZoom();
+  clampBackgroundOffset();
+  scheduleRender(0);
 }
 
 function render() {
@@ -310,7 +382,14 @@ function render() {
     ctx.imageSmoothingQuality = "high";
 
     if (backgroundBitmap) {
-      ctx.drawImage(backgroundBitmap, 0, 0, width, height);
+      const backgroundRect = getBackgroundRect(width, height);
+      ctx.drawImage(
+        backgroundBitmap,
+        backgroundRect.x,
+        backgroundRect.y,
+        backgroundRect.width,
+        backgroundRect.height,
+      );
     }
 
     const mainSpacingBase = hasSecondLine
@@ -397,17 +476,24 @@ function render() {
     const maxY = Math.max(...layers.map((layer) => layer.y + layer.canvas.height));
     const groupWidth = maxX - minX;
     const groupHeight = maxY - minY;
-    const originX = Math.floor((width - groupWidth) / 2 - minX);
-    const originY = Math.floor((height - groupHeight) / 2 - minY);
+    const groupScale = Math.min(
+      1,
+      (width * 0.88) / groupWidth,
+      (height * 0.88) / groupHeight,
+    );
+    const scaledGroupWidth = groupWidth * groupScale;
+    const scaledGroupHeight = groupHeight * groupScale;
+    const originX = Math.floor((width - scaledGroupWidth) / 2 - minX * groupScale);
+    const originY = Math.floor((height - scaledGroupHeight) / 2 - minY * groupScale);
 
     if (els.shadow.checked) {
       drawShadow(
         ctx,
         {
-          x: originX + minX,
-          y: originY + minY,
-          width: groupWidth,
-          height: groupHeight,
+          x: originX + minX * groupScale,
+          y: originY + minY * groupScale,
+          width: scaledGroupWidth,
+          height: scaledGroupHeight,
         },
         Number(els.opacity.value) / 100,
         Array.from(mainText + secondText).reduce(
@@ -418,13 +504,19 @@ function render() {
     }
 
     [...layers].reverse().forEach((layer) => {
-      ctx.drawImage(layer.canvas, originX + layer.x, originY + layer.y);
+      ctx.drawImage(
+        layer.canvas,
+        originX + layer.x * groupScale,
+        originY + layer.y * groupScale,
+        layer.canvas.width * groupScale,
+        layer.canvas.height * groupScale,
+      );
     });
 
     els.sizeLabel.textContent = `${width} × ${height}`;
     els.renderState.textContent = "已就绪";
     els.canvas.classList.remove("rendering");
-    updateZoom();
+    updatePreviewFit();
   });
 }
 
@@ -434,18 +526,49 @@ function scheduleRender(delay = 100) {
   renderTimer = window.setTimeout(render, delay);
 }
 
-function updateZoom() {
-  if (!els.canvas.width) return;
-  const rect = els.canvas.getBoundingClientRect();
-  const zoom = Math.round((rect.width / els.canvas.width) * 100);
-  els.zoomLabel.textContent = `缩放 ${Math.max(1, zoom)}%`;
+function updatePreviewFit() {
+  if (!els.canvas.width || !els.stage.clientWidth || !els.stage.clientHeight) return;
+  const style = window.getComputedStyle(els.stage);
+  const availableWidth =
+    els.stage.clientWidth -
+    Number.parseFloat(style.paddingLeft) -
+    Number.parseFloat(style.paddingRight);
+  const availableHeight =
+    els.stage.clientHeight -
+    Number.parseFloat(style.paddingTop) -
+    Number.parseFloat(style.paddingBottom);
+  const scale = Math.max(
+    0.01,
+    Math.min(availableWidth / els.canvas.width, availableHeight / els.canvas.height),
+  );
+  els.canvas.style.width = `${Math.floor(els.canvas.width * scale)}px`;
+  els.canvas.style.height = `${Math.floor(els.canvas.height * scale)}px`;
+  els.zoomLabel.textContent = `缩放 ${Math.max(1, Math.round(scale * 100))}%`;
 }
 
 function updatePresets() {
   const { width, height } = currentDimensions();
   document.querySelectorAll("[data-size]").forEach((button) => {
+    if (button.dataset.size === "source") {
+      button.disabled = !backgroundBitmap;
+      button.classList.toggle(
+        "active",
+        Boolean(
+          backgroundBitmap &&
+            width === backgroundBitmap.width &&
+            height === backgroundBitmap.height,
+        ),
+      );
+      return;
+    }
     button.classList.toggle("active", button.dataset.size === `${width}x${height}`);
   });
+}
+
+function updateCropZoom() {
+  const value = Number(els.cropZoom.value);
+  els.cropZoomValue.textContent = `${value}%`;
+  els.cropZoom.style.setProperty("--range-progress", `${(value - 100) / 2}%`);
 }
 
 function updateOpacity() {
@@ -455,12 +578,10 @@ function updateOpacity() {
 }
 
 function setBackgroundState(enabled) {
-  els.width.disabled = enabled;
-  els.height.disabled = enabled;
-  els.presets.querySelectorAll("button").forEach((button) => {
-    button.disabled = enabled;
-  });
   els.backgroundDrop.classList.toggle("has-file", enabled);
+  els.backgroundControls.hidden = !enabled;
+  els.canvas.classList.toggle("has-background", enabled);
+  updatePresets();
 }
 
 async function loadBackground(file) {
@@ -476,12 +597,16 @@ async function loadBackground(file) {
     }
     backgroundBitmap?.close?.();
     backgroundBitmap = bitmap;
-    els.width.value = bitmap.width;
-    els.height.value = bitmap.height;
-    els.backgroundLabel.textContent = file.name;
-    els.backgroundHint.textContent = `${bitmap.width} × ${bitmap.height} · 本地读取`;
+    els.width.value = clamp(bitmap.width, 320, 7680);
+    els.height.value = clamp(bitmap.height, 320, 7680);
+    backgroundTransform.fit = "cover";
+    document.querySelectorAll("[data-fit]").forEach((button) => {
+      button.classList.toggle("active", button.dataset.fit === "cover");
+    });
+    resetBackgroundTransform(false);
+    els.backgroundLabel.textContent = file.name || "剪贴板图片";
+    els.backgroundHint.textContent = `${bitmap.width} × ${bitmap.height} · 可拖动裁剪`;
     setBackgroundState(true);
-    updatePresets();
     scheduleRender(10);
   } catch (error) {
     showToast(error.message || "背景图片读取失败");
@@ -494,9 +619,8 @@ function removeBackground() {
   backgroundBitmap?.close?.();
   backgroundBitmap = null;
   els.backgroundLabel.textContent = "添加背景图片";
-  els.backgroundHint.textContent = "PNG / JPG / WEBP / BMP";
+  els.backgroundHint.textContent = "点击、拖入或 Ctrl/⌘+V 粘贴";
   setBackgroundState(false);
-  updatePresets();
   scheduleRender(10);
 }
 
@@ -519,6 +643,7 @@ function reset() {
   els.opacity.disabled = true;
   els.opacityField.classList.add("disabled");
   updateOpacity();
+  updateCropZoom();
   updatePresets();
   scheduleRender(10);
   showToast("已恢复默认设置");
@@ -551,6 +676,7 @@ function exportPng() {
 function bindEvents() {
   [els.width, els.height, els.mainText, els.secondText].forEach((input) => {
     input.addEventListener("input", () => {
+      clampBackgroundOffset();
       updatePresets();
       scheduleRender();
     });
@@ -575,12 +701,29 @@ function bindEvents() {
   els.presets.addEventListener("click", (event) => {
     const button = event.target.closest("[data-size]");
     if (!button || button.disabled) return;
-    const [width, height] = button.dataset.size.split("x").map(Number);
+    const [width, height] =
+      button.dataset.size === "source"
+        ? [backgroundBitmap.width, backgroundBitmap.height]
+        : button.dataset.size.split("x").map(Number);
     els.width.value = width;
     els.height.value = height;
+    clampBackgroundOffset();
     updatePresets();
     scheduleRender(10);
   });
+  els.cropModes.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-fit]");
+    if (!button || !backgroundBitmap) return;
+    backgroundTransform.fit = button.dataset.fit;
+    document.querySelectorAll("[data-fit]").forEach((item) => {
+      item.classList.toggle("active", item === button);
+    });
+    resetBackgroundTransform();
+  });
+  els.cropZoom.addEventListener("input", () => {
+    setBackgroundZoom(Number(els.cropZoom.value) / 100);
+  });
+  els.resetCrop.addEventListener("click", () => resetBackgroundTransform());
   els.backgroundDrop.addEventListener("click", (event) => {
     if (event.target.closest("#clearBackground")) {
       removeBackground();
@@ -606,14 +749,86 @@ function bindEvents() {
   els.backgroundDrop.addEventListener("drop", (event) =>
     loadBackground(event.dataTransfer?.files?.[0]),
   );
+  window.addEventListener("paste", (event) => {
+    const imageItem = Array.from(event.clipboardData?.items || []).find((item) =>
+      item.type.startsWith("image/"),
+    );
+    const imageFile = imageItem?.getAsFile();
+    if (!imageFile) return;
+    event.preventDefault();
+    loadBackground(imageFile);
+  });
+  els.canvas.addEventListener("pointerdown", (event) => {
+    if (!backgroundBitmap || event.button !== 0) return;
+    els.canvas.setPointerCapture(event.pointerId);
+    activeDrag = {
+      pointerId: event.pointerId,
+      clientX: event.clientX,
+      clientY: event.clientY,
+    };
+  });
+  els.canvas.addEventListener("pointermove", (event) => {
+    if (!activeDrag || activeDrag.pointerId !== event.pointerId || !backgroundBitmap) {
+      return;
+    }
+    const rect = els.canvas.getBoundingClientRect();
+    const previewScale = rect.width / els.canvas.width;
+    backgroundTransform.offsetX += (event.clientX - activeDrag.clientX) / previewScale;
+    backgroundTransform.offsetY += (event.clientY - activeDrag.clientY) / previewScale;
+    activeDrag.clientX = event.clientX;
+    activeDrag.clientY = event.clientY;
+    clampBackgroundOffset();
+    scheduleRender(0);
+  });
+  const endDrag = (event) => {
+    if (activeDrag?.pointerId === event.pointerId) activeDrag = null;
+  };
+  els.canvas.addEventListener("pointerup", endDrag);
+  els.canvas.addEventListener("pointercancel", endDrag);
+  els.canvas.addEventListener(
+    "wheel",
+    (event) => {
+      if (!backgroundBitmap) return;
+      event.preventDefault();
+      const rect = els.canvas.getBoundingClientRect();
+      const anchor = {
+        x: ((event.clientX - rect.left) / rect.width) * els.canvas.width,
+        y: ((event.clientY - rect.top) / rect.height) * els.canvas.height,
+      };
+      const nextZoom =
+        backgroundTransform.zoom * Math.exp(-event.deltaY * 0.0015);
+      setBackgroundZoom(nextZoom, anchor);
+    },
+    { passive: false },
+  );
+  els.canvas.addEventListener("dblclick", () => {
+    if (backgroundBitmap) resetBackgroundTransform();
+  });
+  els.canvas.addEventListener("keydown", (event) => {
+    if (!backgroundBitmap) return;
+    const step = event.shiftKey ? 20 : 4;
+    const delta = {
+      ArrowLeft: [-step, 0],
+      ArrowRight: [step, 0],
+      ArrowUp: [0, -step],
+      ArrowDown: [0, step],
+    }[event.key];
+    if (!delta) return;
+    event.preventDefault();
+    backgroundTransform.offsetX += delta[0];
+    backgroundTransform.offsetY += delta[1];
+    clampBackgroundOffset();
+    scheduleRender(0);
+  });
   els.export.addEventListener("click", exportPng);
   els.reset.addEventListener("click", reset);
-  new ResizeObserver(updateZoom).observe(els.stage);
+  new ResizeObserver(updatePreviewFit).observe(els.stage);
 }
 
 async function loadResources() {
   bindEvents();
   updateOpacity();
+  updateCropZoom();
   try {
     const [, , , dictionaryResponse] = await Promise.all([
       document.fonts.load('900 64px "Endfield Sans"'),
