@@ -90,7 +90,11 @@
                 <span>图片缩放 <output id="cropZoomValue">100%</output></span>
                 <input id="cropZoomInput" type="range" min="100" max="300" step="1" value="100" />
               </label>
-              <p class="crop-hint">在预览中拖动图片，滚轮缩放，双击复位。</p>
+              <label class="range-field crop-range">
+                <span>背景压暗 <output id="backgroundDimValue">20%</output></span>
+                <input id="backgroundDimInput" type="range" min="0" max="85" step="1" value="20" />
+              </label>
+              <p class="crop-hint">拖动图片调整位置，滚轮缩放；背景压暗仅作用于原图。</p>
             </div>
           </section>
 
