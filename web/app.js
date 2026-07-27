@@ -39,6 +39,15 @@ const els = {
   backgroundDim: document.querySelector("#backgroundDimInput"),
   backgroundDimValue: document.querySelector("#backgroundDimValue"),
   resetCrop: document.querySelector("#resetCropButton"),
+  textSize: document.querySelector("#textSizeInput"),
+  textSizeValue: document.querySelector("#textSizeValue"),
+  textPositionX: document.querySelector("#textPositionXInput"),
+  textPositionXValue: document.querySelector("#textPositionXValue"),
+  textPositionY: document.querySelector("#textPositionYInput"),
+  textPositionYValue: document.querySelector("#textPositionYValue"),
+  textSpacing: document.querySelector("#textSpacingInput"),
+  textSpacingValue: document.querySelector("#textSpacingValue"),
+  resetTextLayout: document.querySelector("#resetTextLayoutButton"),
   presets: document.querySelector(".presets"),
   renderState: document.querySelector("#renderState"),
   sizeLabel: document.querySelector("#sizeLabel"),
@@ -57,6 +66,10 @@ const DEFAULTS = {
   shadow: false,
   opacity: 15,
   backgroundDim: 20,
+  textSize: 100,
+  textPositionX: 0,
+  textPositionY: 0,
+  textSpacing: 100,
 };
 
 let backgroundBitmap = null;
@@ -406,9 +419,14 @@ function render() {
     const mainSpacingBase = hasSecondLine
       ? CONSTANTS.mainTextSpacingTwoLines
       : CONSTANTS.mainTextSpacing;
+    const textSpacingScale = Number(els.textSpacing.value) / 100;
     const spacing = Math.max(
-      1,
-      Math.round(width * dynamicSpacing(mainSpacingBase, Array.from(mainText).length)),
+      0,
+      Math.round(
+        width *
+          dynamicSpacing(mainSpacingBase, Array.from(mainText).length) *
+          textSpacingScale,
+      ),
     );
     const mainFontSize = Math.round(
       height *
@@ -427,7 +445,7 @@ function render() {
       const secondLayer = createTextLayer(
         secondText,
         Math.round(height * CONSTANTS.secondLineTextHeight),
-        Math.round(width * CONSTANTS.secondLineSpacing),
+        Math.round(width * CONSTANTS.secondLineSpacing * textSpacingScale),
       );
       applyTopAlphaFade(secondLayer, 0.3);
       layers.push({ canvas: secondLayer, x: 0, y: 0, type: "second" });
@@ -487,15 +505,24 @@ function render() {
     const maxY = Math.max(...layers.map((layer) => layer.y + layer.canvas.height));
     const groupWidth = maxX - minX;
     const groupHeight = maxY - minY;
-    const groupScale = Math.min(
+    const fitScale = Math.min(
       1,
       (width * 0.88) / groupWidth,
       (height * 0.88) / groupHeight,
     );
+    const groupScale = fitScale * (Number(els.textSize.value) / 100);
     const scaledGroupWidth = groupWidth * groupScale;
     const scaledGroupHeight = groupHeight * groupScale;
-    const originX = Math.floor((width - scaledGroupWidth) / 2 - minX * groupScale);
-    const originY = Math.floor((height - scaledGroupHeight) / 2 - minY * groupScale);
+    const originX = Math.floor(
+      (width - scaledGroupWidth) / 2 -
+        minX * groupScale +
+        width * (Number(els.textPositionX.value) / 100),
+    );
+    const originY = Math.floor(
+      (height - scaledGroupHeight) / 2 -
+        minY * groupScale +
+        height * (Number(els.textPositionY.value) / 100),
+    );
 
     if (els.shadow.checked) {
       drawShadow(
@@ -591,6 +618,33 @@ function updateBackgroundDim() {
   );
 }
 
+function updateRangeControl(input, output, suffix = "%") {
+  const value = Number(input.value);
+  const min = Number(input.min);
+  const max = Number(input.max);
+  output.textContent = `${value}${suffix}`;
+  input.style.setProperty(
+    "--range-progress",
+    `${((value - min) / (max - min)) * 100}%`,
+  );
+}
+
+function updateTextLayoutControls() {
+  updateRangeControl(els.textSize, els.textSizeValue);
+  updateRangeControl(els.textPositionX, els.textPositionXValue);
+  updateRangeControl(els.textPositionY, els.textPositionYValue);
+  updateRangeControl(els.textSpacing, els.textSpacingValue);
+}
+
+function resetTextLayout(renderAfter = true) {
+  els.textSize.value = DEFAULTS.textSize;
+  els.textPositionX.value = DEFAULTS.textPositionX;
+  els.textPositionY.value = DEFAULTS.textPositionY;
+  els.textSpacing.value = DEFAULTS.textSpacing;
+  updateTextLayoutControls();
+  if (renderAfter) scheduleRender(10);
+}
+
 function updateOpacity() {
   const value = Number(els.opacity.value);
   els.opacityValue.textContent = `${value}%`;
@@ -661,11 +715,13 @@ function reset() {
   els.shadow.checked = DEFAULTS.shadow;
   els.opacity.value = DEFAULTS.opacity;
   els.backgroundDim.value = DEFAULTS.backgroundDim;
+  resetTextLayout(false);
   els.opacity.disabled = true;
   els.opacityField.classList.add("disabled");
   updateOpacity();
   updateCropZoom();
   updateBackgroundDim();
+  updateTextLayoutControls();
   updatePresets();
   scheduleRender(10);
   showToast("已恢复默认设置");
@@ -749,6 +805,15 @@ function bindEvents() {
     updateBackgroundDim();
     scheduleRender(0);
   });
+  [els.textSize, els.textPositionX, els.textPositionY, els.textSpacing].forEach(
+    (input) => {
+      input.addEventListener("input", () => {
+        updateTextLayoutControls();
+        scheduleRender(0);
+      });
+    },
+  );
+  els.resetTextLayout.addEventListener("click", () => resetTextLayout());
   els.resetCrop.addEventListener("click", () => resetBackgroundTransform());
   els.backgroundDrop.addEventListener("click", (event) => {
     if (event.target.closest("#clearBackground")) {
@@ -856,6 +921,7 @@ async function loadResources() {
   updateOpacity();
   updateCropZoom();
   updateBackgroundDim();
+  updateTextLayoutControls();
   try {
     const [, , , dictionaryResponse] = await Promise.all([
       document.fonts.load('900 64px "Endfield Sans"'),

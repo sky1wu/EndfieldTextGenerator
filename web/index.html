@@ -112,6 +112,29 @@
               <span>第二行 <em>可选</em></span>
               <input id="secondTextInput" type="text" maxlength="32" placeholder="输入第二行文字" />
             </label>
+
+            <div class="text-layout-controls">
+              <div class="layout-heading">
+                <span>文字排版</span>
+                <button id="resetTextLayoutButton" type="button">复位排版</button>
+              </div>
+              <label class="range-field">
+                <span>整体大小 <output id="textSizeValue">100%</output></span>
+                <input id="textSizeInput" type="range" min="40" max="200" step="1" value="100" />
+              </label>
+              <label class="range-field">
+                <span>水平位置 <output id="textPositionXValue">0%</output></span>
+                <input id="textPositionXInput" type="range" min="-50" max="50" step="1" value="0" />
+              </label>
+              <label class="range-field">
+                <span>垂直位置 <output id="textPositionYValue">0%</output></span>
+                <input id="textPositionYInput" type="range" min="-50" max="50" step="1" value="0" />
+              </label>
+              <label class="range-field">
+                <span>字间距 <output id="textSpacingValue">100%</output></span>
+                <input id="textSpacingInput" type="range" min="50" max="200" step="1" value="100" />
+              </label>
+            </div>
           </section>
 
           <section class="control-section compact" aria-labelledby="effect-title">
