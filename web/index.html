@@ -54,7 +54,7 @@
               <span class="drop-icon" aria-hidden="true">＋</span>
               <span>
                 <b id="backgroundLabel">添加背景图片</b>
-                <small id="backgroundHint">PNG / JPG / WEBP / BMP</small>
+                <small id="backgroundHint">点击、拖入或 Ctrl/⌘+V 粘贴</small>
               </span>
               <span id="clearBackground" class="clear-file">移除</span>
             </button>
@@ -74,6 +74,23 @@
               <button type="button" data-size="1920x1080" class="active">16:9</button>
               <button type="button" data-size="1080x1080">1:1</button>
               <button type="button" data-size="1080x1920">9:16</button>
+              <button type="button" data-size="source" disabled>原图</button>
+            </div>
+
+            <div id="backgroundControls" class="background-controls" hidden>
+              <div class="crop-heading">
+                <span>图片裁剪</span>
+                <button id="resetCropButton" type="button">复位位置</button>
+              </div>
+              <div class="crop-modes" aria-label="图片适配模式">
+                <button type="button" data-fit="cover" class="active">填满裁剪</button>
+                <button type="button" data-fit="contain">完整显示</button>
+              </div>
+              <label class="range-field crop-range">
+                <span>图片缩放 <output id="cropZoomValue">100%</output></span>
+                <input id="cropZoomInput" type="range" min="100" max="300" step="1" value="100" />
+              </label>
+              <p class="crop-hint">在预览中拖动图片，滚轮缩放，双击复位。</p>
             </div>
           </section>
 
@@ -148,7 +165,13 @@
           <div id="canvasStage" class="canvas-stage">
             <div class="corner-label top-left">A-01</div>
             <div class="corner-label bottom-right">LOCAL RENDER</div>
-            <canvas id="outputCanvas" width="1920" height="1080" aria-label="生成图片预览"></canvas>
+            <canvas
+              id="outputCanvas"
+              width="1920"
+              height="1080"
+              tabindex="0"
+              aria-label="生成图片预览；添加背景后可拖动调整裁剪位置"
+            ></canvas>
           </div>
 
           <div class="preview-footer">

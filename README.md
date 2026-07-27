@@ -9,7 +9,7 @@
 
 在线使用：https://sky1wu.github.io/EndfieldTextGenerator/
 
-Web 版使用原生 Canvas 实现，字体、五笔 98 码表、背景图片处理和 PNG 导出均在浏览器本地完成。
+Web 版使用原生 Canvas 实现，字体、五笔 98 码表、背景图片处理和 PNG 导出均在浏览器本地完成。支持拖动与缩放裁剪、画布比例切换，以及从剪贴板直接粘贴图片。
 
 本地预览：
 
