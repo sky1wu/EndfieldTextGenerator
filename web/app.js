@@ -36,6 +36,8 @@ const els = {
   cropModes: document.querySelector(".crop-modes"),
   cropZoom: document.querySelector("#cropZoomInput"),
   cropZoomValue: document.querySelector("#cropZoomValue"),
+  backgroundDim: document.querySelector("#backgroundDimInput"),
+  backgroundDimValue: document.querySelector("#backgroundDimValue"),
   resetCrop: document.querySelector("#resetCropButton"),
   presets: document.querySelector(".presets"),
   renderState: document.querySelector("#renderState"),
@@ -54,6 +56,7 @@ const DEFAULTS = {
   subtitle: false,
   shadow: false,
   opacity: 15,
+  backgroundDim: 20,
 };
 
 let backgroundBitmap = null;
@@ -390,6 +393,14 @@ function render() {
         backgroundRect.width,
         backgroundRect.height,
       );
+      const dimOpacity = Number(els.backgroundDim.value) / 100;
+      if (dimOpacity > 0) {
+        ctx.save();
+        ctx.globalCompositeOperation = "source-atop";
+        ctx.fillStyle = `rgba(0, 0, 0, ${dimOpacity})`;
+        ctx.fillRect(0, 0, width, height);
+        ctx.restore();
+      }
     }
 
     const mainSpacingBase = hasSecondLine
@@ -571,6 +582,15 @@ function updateCropZoom() {
   els.cropZoom.style.setProperty("--range-progress", `${(value - 100) / 2}%`);
 }
 
+function updateBackgroundDim() {
+  const value = Number(els.backgroundDim.value);
+  els.backgroundDimValue.textContent = `${value}%`;
+  els.backgroundDim.style.setProperty(
+    "--range-progress",
+    `${(value / Number(els.backgroundDim.max)) * 100}%`,
+  );
+}
+
 function updateOpacity() {
   const value = Number(els.opacity.value);
   els.opacityValue.textContent = `${value}%`;
@@ -640,10 +660,12 @@ function reset() {
   els.subtitle.checked = DEFAULTS.subtitle;
   els.shadow.checked = DEFAULTS.shadow;
   els.opacity.value = DEFAULTS.opacity;
+  els.backgroundDim.value = DEFAULTS.backgroundDim;
   els.opacity.disabled = true;
   els.opacityField.classList.add("disabled");
   updateOpacity();
   updateCropZoom();
+  updateBackgroundDim();
   updatePresets();
   scheduleRender(10);
   showToast("已恢复默认设置");
@@ -722,6 +744,10 @@ function bindEvents() {
   });
   els.cropZoom.addEventListener("input", () => {
     setBackgroundZoom(Number(els.cropZoom.value) / 100);
+  });
+  els.backgroundDim.addEventListener("input", () => {
+    updateBackgroundDim();
+    scheduleRender(0);
   });
   els.resetCrop.addEventListener("click", () => resetBackgroundTransform());
   els.backgroundDrop.addEventListener("click", (event) => {
@@ -829,6 +855,7 @@ async function loadResources() {
   bindEvents();
   updateOpacity();
   updateCropZoom();
+  updateBackgroundDim();
   try {
     const [, , , dictionaryResponse] = await Promise.all([
       document.fonts.load('900 64px "Endfield Sans"'),
