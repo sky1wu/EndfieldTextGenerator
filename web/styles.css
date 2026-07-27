@@ -385,25 +385,38 @@ button {
   animation: crop-controls-in 180ms ease both;
 }
 
-.crop-heading {
+.crop-heading,
+.layout-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-.crop-heading > span {
+.crop-heading > span,
+.layout-heading > span {
   color: #bac1be;
   font-size: 10px;
   letter-spacing: 0.08em;
 }
 
-.crop-heading button {
+.crop-heading button,
+.layout-heading button {
   padding: 0;
   border: 0;
   background: transparent;
   color: var(--accent);
   font-size: 9px;
   cursor: pointer;
+}
+
+.text-layout-controls {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.text-layout-controls .range-field {
+  padding-top: 14px;
 }
 
 .crop-modes {
