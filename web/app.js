@@ -169,7 +169,7 @@ function measureGlyphLine(ctx, text, fontSize) {
   );
 }
 
-function createSubtitleLayer(text, fontSize) {
+function createSubtitleLayer(text, fontSize, spacingScale = 1) {
   const cleanText = Array.from(text).filter(
     (character) => !/[·’!"#$%&'()＃！（）*+,\-./:;<=>?@，：？￥★、…．＞【】［］《》“”‘’[\]\\^_`{|}~\s]/u.test(character),
   );
@@ -198,16 +198,17 @@ function createSubtitleLayer(text, fontSize) {
     return block;
   });
 
+  const blockSpacing = CONSTANTS.subtitleBlockSpacing * spacingScale;
   const totalWidth =
     blocks.reduce((sum, block) => sum + block.width, 0) +
-    CONSTANTS.subtitleBlockSpacing * Math.max(0, blocks.length - 1);
+    blockSpacing * Math.max(0, blocks.length - 1);
   const maxHeight = Math.max(...blocks.map((block) => block.height));
   const layer = makeCanvas(totalWidth, maxHeight);
   const ctx = layer.getContext("2d");
   let x = 0;
   blocks.forEach((block) => {
     ctx.drawImage(block, x, Math.floor((maxHeight - block.height) / 2));
-    x += block.width + CONSTANTS.subtitleBlockSpacing;
+    x += block.width + blockSpacing;
   });
   applyBottomAlphaFade(layer, 0.5, 0.05);
   return layer;
@@ -419,18 +420,22 @@ function render() {
     const mainSpacingBase = hasSecondLine
       ? CONSTANTS.mainTextSpacingTwoLines
       : CONSTANTS.mainTextSpacing;
+    const requestedTextScale = Number(els.textSize.value) / 100;
+    const rasterScale = Math.max(1, requestedTextScale);
     const textSpacingScale = Number(els.textSpacing.value) / 100;
     const spacing = Math.max(
       0,
       Math.round(
         width *
           dynamicSpacing(mainSpacingBase, Array.from(mainText).length) *
-          textSpacingScale,
+          textSpacingScale *
+          rasterScale,
       ),
     );
     const mainFontSize = Math.round(
       height *
-        (hasSecondLine ? CONSTANTS.mainTextHeightTwoLines : CONSTANTS.mainTextHeight),
+        (hasSecondLine ? CONSTANTS.mainTextHeightTwoLines : CONSTANTS.mainTextHeight) *
+        rasterScale,
     );
     const layers = [
       {
@@ -444,8 +449,10 @@ function render() {
     if (hasSecondLine) {
       const secondLayer = createTextLayer(
         secondText,
-        Math.round(height * CONSTANTS.secondLineTextHeight),
-        Math.round(width * CONSTANTS.secondLineSpacing * textSpacingScale),
+        Math.round(height * CONSTANTS.secondLineTextHeight * rasterScale),
+        Math.round(
+          width * CONSTANTS.secondLineSpacing * textSpacingScale * rasterScale,
+        ),
       );
       applyTopAlphaFade(secondLayer, 0.3);
       layers.push({ canvas: secondLayer, x: 0, y: 0, type: "second" });
@@ -459,22 +466,27 @@ function render() {
             height *
               (hasSecondLine
                 ? CONSTANTS.subtitleTextHeightTwoLines
-                : CONSTANTS.subtitleTextHeight),
+                : CONSTANTS.subtitleTextHeight) *
+              rasterScale,
           ),
+          rasterScale,
         ),
       ];
       if (hasSecondLine) {
         subtitleLayers.push(
           createSubtitleLayer(
             secondText,
-            Math.round(height * CONSTANTS.subtitleTextHeightTwoLines),
+            Math.round(
+              height * CONSTANTS.subtitleTextHeightTwoLines * rasterScale,
+            ),
+            rasterScale,
           ),
         );
       }
       layers.push({
         canvas: combineHorizontal(
           subtitleLayers,
-          Math.round(width * CONSTANTS.subtitleGroupSpacing),
+          Math.round(width * CONSTANTS.subtitleGroupSpacing * rasterScale),
         ),
         x: 0,
         y: 0,
@@ -496,7 +508,9 @@ function render() {
     }
     const subtitleLayer = layers.find((layer) => layer.type === "subtitle");
     if (subtitleLayer) {
-      subtitleLayer.y = currentY + Math.round(height * CONSTANTS.subtitlePositionSpacing);
+      subtitleLayer.y =
+        currentY +
+        Math.round(height * CONSTANTS.subtitlePositionSpacing * rasterScale);
     }
 
     const minX = Math.min(...layers.map((layer) => layer.x));
@@ -505,12 +519,14 @@ function render() {
     const maxY = Math.max(...layers.map((layer) => layer.y + layer.canvas.height));
     const groupWidth = maxX - minX;
     const groupHeight = maxY - minY;
+    const logicalGroupWidth = groupWidth / rasterScale;
+    const logicalGroupHeight = groupHeight / rasterScale;
     const fitScale = Math.min(
       1,
-      (width * 0.88) / groupWidth,
-      (height * 0.88) / groupHeight,
+      (width * 0.88) / logicalGroupWidth,
+      (height * 0.88) / logicalGroupHeight,
     );
-    const groupScale = fitScale * (Number(els.textSize.value) / 100);
+    const groupScale = fitScale * (requestedTextScale / rasterScale);
     const scaledGroupWidth = groupWidth * groupScale;
     const scaledGroupHeight = groupHeight * groupScale;
     const originX = Math.floor(
