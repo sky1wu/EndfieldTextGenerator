@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="终末地白色大字生成器 Web 版，在浏览器中生成并导出透明 PNG。"
+    />
+    <meta name="theme-color" content="#0a0c0c" />
+    <title>终末地白色大字生成器</title>
+    <link rel="icon" href="./assets/icon.ico" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="./" aria-label="终末地白色大字生成器首页">
+          <span class="brand-mark" aria-hidden="true">
+            <i></i><i></i><i></i>
+          </span>
+          <span>
+            <b>ENDFIELD</b>
+            <small>TEXT GENERATOR / WEB</small>
+          </span>
+        </a>
+        <a
+          class="source-link"
+          href="https://github.com/RXLX-CHINA/EndfieldTextGenerator"
+          target="_blank"
+          rel="noreferrer"
+        >
+          原项目
+          <span aria-hidden="true">↗</span>
+        </a>
+      </header>
+
+      <main class="workspace">
+        <aside class="controls" aria-label="生成设置">
+          <div class="controls-heading">
+            <p class="eyebrow">GENERATOR / 01</p>
+            <h1>白色大字<br />生成终端</h1>
+            <p>所有处理均在本地完成，图片不会上传。</p>
+          </div>
+
+          <section class="control-section" aria-labelledby="canvas-title">
+            <div class="section-title">
+              <h2 id="canvas-title">画布</h2>
+              <span>CANVAS</span>
+            </div>
+
+            <input id="backgroundInput" type="file" accept="image/png,image/jpeg,image/webp,image/bmp" hidden />
+            <button id="backgroundDrop" class="drop-target" type="button">
+              <span class="drop-icon" aria-hidden="true">＋</span>
+              <span>
+                <b id="backgroundLabel">添加背景图片</b>
+                <small id="backgroundHint">PNG / JPG / WEBP / BMP</small>
+              </span>
+              <span id="clearBackground" class="clear-file">移除</span>
+            </button>
+
+            <div class="field-pair">
+              <label class="field">
+                <span>宽度 <em>PX</em></span>
+                <input id="widthInput" type="number" min="320" max="7680" step="1" value="1920" />
+              </label>
+              <label class="field">
+                <span>高度 <em>PX</em></span>
+                <input id="heightInput" type="number" min="320" max="7680" step="1" value="1080" />
+              </label>
+            </div>
+
+            <div class="presets" aria-label="画布预设">
+              <button type="button" data-size="1920x1080" class="active">16:9</button>
+              <button type="button" data-size="1080x1080">1:1</button>
+              <button type="button" data-size="1080x1920">9:16</button>
+            </div>
+          </section>
+
+          <section class="control-section" aria-labelledby="text-title">
+            <div class="section-title">
+              <h2 id="text-title">文字</h2>
+              <span>TYPE</span>
+            </div>
+
+            <label class="field">
+              <span>主标题</span>
+              <input id="mainTextInput" type="text" maxlength="28" value="协议已确认" />
+            </label>
+            <label class="field">
+              <span>第二行 <em>可选</em></span>
+              <input id="secondTextInput" type="text" maxlength="32" placeholder="输入第二行文字" />
+            </label>
+          </section>
+
+          <section class="control-section compact" aria-labelledby="effect-title">
+            <div class="section-title">
+              <h2 id="effect-title">效果</h2>
+              <span>EFFECT</span>
+            </div>
+
+            <label class="switch-row">
+              <span>
+                <b>萨卡兹文副标题</b>
+                <small>根据标题生成五笔 98 编码</small>
+              </span>
+              <input id="subtitleToggle" type="checkbox" />
+              <i aria-hidden="true"></i>
+            </label>
+
+            <label class="switch-row">
+              <span>
+                <b>底影</b>
+                <small>增强文字与背景的分离度</small>
+              </span>
+              <input id="shadowToggle" type="checkbox" />
+              <i aria-hidden="true"></i>
+            </label>
+
+            <label id="opacityField" class="range-field disabled">
+              <span>底影不透明度 <output id="opacityValue">15%</output></span>
+              <input id="opacityInput" type="range" min="0" max="100" step="1" value="15" disabled />
+            </label>
+          </section>
+
+          <div class="actions">
+            <button id="exportButton" class="primary-action" type="button">
+              <span>导出 PNG</span>
+              <span aria-hidden="true">↓</span>
+            </button>
+            <button id="resetButton" class="secondary-action" type="button">重置</button>
+          </div>
+        </aside>
+
+        <section class="preview-panel" aria-label="实时预览">
+          <div class="preview-toolbar">
+            <div>
+              <span class="live-dot" aria-hidden="true"></span>
+              <b>实时预览</b>
+              <span id="renderState">正在加载资源</span>
+            </div>
+            <div class="preview-meta">
+              <span id="sizeLabel">1920 × 1080</span>
+              <span id="zoomLabel">缩放 --%</span>
+            </div>
+          </div>
+
+          <div id="canvasStage" class="canvas-stage">
+            <div class="corner-label top-left">A-01</div>
+            <div class="corner-label bottom-right">LOCAL RENDER</div>
+            <canvas id="outputCanvas" width="1920" height="1080" aria-label="生成图片预览"></canvas>
+          </div>
+
+          <div class="preview-footer">
+            <span>TRANSPARENT PNG / SRGB</span>
+            <span>AUTHOR · 刃下狼血</span>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
